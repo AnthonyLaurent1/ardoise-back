@@ -42,6 +42,12 @@ class Client
     #[ORM\Column(length: 100, nullable: true)]
     private ?string $city = null;
 
+    #[ORM\Column(length: 14, nullable: true)]
+    private ?string $siret = null;
+
+    #[ORM\Column(length: 32, nullable: true)]
+    private ?string $vatNumber = null;
+
     #[ORM\Column]
     private ?\DateTimeImmutable $createdAt = null;
 
@@ -72,6 +78,30 @@ class Client
 
     public function getCity(): ?string { return $this->city; }
     public function setCity(?string $city): static { $this->city = $city; return $this; }
+
+    public function getSiret(): ?string
+    {
+        return $this->siret;
+    }
+
+    public function setSiret(?string $siret): static
+    {
+        $this->siret = $siret;
+
+        return $this;
+    }
+
+    public function getVatNumber(): ?string
+    {
+        return $this->vatNumber;
+    }
+
+    public function setVatNumber(?string $vatNumber): static
+    {
+        $this->vatNumber = $vatNumber;
+
+        return $this;
+    }
 
     public function getCreatedAt(): ?\DateTimeImmutable { return $this->createdAt; }
 

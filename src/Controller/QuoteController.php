@@ -178,11 +178,7 @@ final class QuoteController extends AbstractController
             );
         }
 
-        try {
-            $data = $request->toArray();
-        } catch (\JsonException) {
-            return $this->json(['message' => 'Données invalides.'], Response::HTTP_BAD_REQUEST);
-        }
+        $data = $request->toArray();
 
         $clientId = $data['clientId'] ?? null;
         $lines = $data['lines'] ?? [];
@@ -272,6 +268,41 @@ final class QuoteController extends AbstractController
         return $this->json($this->detailData($quote, $updatedLines));
     }
 
+    #[Route('/{id}/accept', methods: ['PATCH'])]
+    public function accept(
+        int $id,
+        #[CurrentUser] User $user,
+        QuoteRepository $quoteRepository,
+        EntityManagerInterface $entityManager,
+    ): JsonResponse {
+        $quote = $quoteRepository->findOneBy([
+            'id' => $id,
+            'company' => $user->getCompany(),
+        ]);
+
+        if (!$quote) {
+            return $this->json(
+                ['message' => 'Devis introuvable.'],
+                404,
+            );
+        }
+
+        if ($quote->getStatus() !== 'sent') {
+            return $this->json(
+                ['message' => 'Seul un devis envoyé peut être accepté.'],
+                422,
+            );
+        }
+
+        $quote
+            ->setStatus('accepted')
+            ->setAcceptedAt(new \DateTimeImmutable());
+
+        $entityManager->flush();
+
+        return $this->json($this->data($quote));
+    }
+
     private function company(): Company
     {
         /** @var User $user */
@@ -322,6 +353,7 @@ final class QuoteController extends AbstractController
             'id' => $quote->getId(),
             'reference' => $quote->getReference(),
             'status' => $quote->getStatus(),
+            'acceptedAt' => $quote->getAcceptedAt()?->format(DATE_ATOM),
             'issuedAt' => $quote->getIssuedAt()->format('Y-m-d'),
             'validUntil' => $quote->getValidUntil()->format('Y-m-d'),
             'validityDays' => max(

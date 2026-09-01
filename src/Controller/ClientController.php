@@ -11,6 +11,8 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
+use App\Entity\Quote;
+use App\Repository\QuoteRepository;
 
 #[Route('/api/clients')]
 final class ClientController extends AbstractController
@@ -28,6 +30,41 @@ final class ClientController extends AbstractController
         return $this->json(array_map(
             fn (Client $client) => $this->data($client),
             $clients,
+        ));
+    }
+
+    #[Route('/{id}/quotes', methods: ['GET'])]
+    public function quotes(
+        int $id,
+        ClientRepository $clientRepository,
+        QuoteRepository $quoteRepository,
+    ): JsonResponse {
+        $client = $clientRepository->findOneBy([
+            'id' => $id,
+            'company' => $this->company(),
+        ]);
+
+        if (!$client) {
+            return $this->json(['message' => 'Client introuvable.'], 404);
+        }
+
+        $quotes = $quoteRepository->findBy(
+            [
+                'company' => $this->company(),
+                'client' => $client,
+            ],
+            ['issuedAt' => 'DESC'],
+        );
+
+        return $this->json(array_map(
+            fn (Quote $quote) => [
+                'id' => $quote->getId(),
+                'reference' => $quote->getReference(),
+                'status' => $quote->getStatus(),
+                'issuedAt' => $quote->getIssuedAt()?->format(DATE_ATOM),
+                'totalTtc' => $quote->getTotalTtc(),
+            ],
+            $quotes,
         ));
     }
 
@@ -166,6 +203,13 @@ final class ClientController extends AbstractController
             return 'Adresse email invalide.';
         }
 
+        $siret = $this->nullable($data['siret'] ?? null);
+        $vatNumber = $this->nullable($data['vatNumber'] ?? null);
+
+        if ($type === 'business' && !$siret) {
+            return 'Le numéro SIRET est obligatoire pour un client professionnel.';
+        }
+
         $client
             ->setName($name)
             ->setType($type)
@@ -174,7 +218,9 @@ final class ClientController extends AbstractController
             ->setPhone($this->nullable($data['phone'] ?? null))
             ->setAddress($this->nullable($data['address'] ?? null))
             ->setPostalCode($this->nullable($data['postalCode'] ?? null))
-            ->setCity($this->nullable($data['city'] ?? null));
+            ->setCity($this->nullable($data['city'] ?? null))
+            ->setSiret($siret)
+            ->setVatNumber($vatNumber);
 
         return null;
     }
@@ -198,6 +244,8 @@ final class ClientController extends AbstractController
             'address' => $client->getAddress(),
             'postalCode' => $client->getPostalCode(),
             'city' => $client->getCity(),
+            'siret' => $client->getSiret(),
+            'vatNumber' => $client->getVatNumber(),
             'createdAt' => $client->getCreatedAt()?->format(DATE_ATOM),
         ];
     }
